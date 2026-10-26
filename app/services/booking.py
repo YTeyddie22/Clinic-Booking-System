@@ -9,6 +9,7 @@ from app.enums import AppointmentStatus
 from app.config import settings
 from app import errors
 
+
 async def _validate_slot(db: AsyncSession, doctor_id: uuid.UUID, start_time: datetime):
     doctor = await db.get(Doctor, doctor_id)
 
