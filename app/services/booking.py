@@ -39,7 +39,7 @@ async def _validate_slot(db: AsyncSession, doctor_id: uuid.UUID, start_time: dat
     )
     res = await db.execute(statement)
 
-    if not res.scalar().first():
+    if not res.scalars().first():
         raise errors.OutsideWorkingHoursError()
 
 async def book_appointment(db: AsyncSession, doctor_id: uuid.UUID, patient_id: uuid.UUID, start_time: datetime):
