@@ -7,7 +7,7 @@ from app.models import WorkingHours, Appointment
 from app.enums import AppointmentStatus
 
 
-def get_available_slots(doctor_id: str, target_date: date, working_hours: list[WorkingHours], existing_appointments: list[Appointment], now: datetime) -> list[dict]:
+def get_available_slots(target_date: date, working_hours: list[WorkingHours], existing_appointments: list[Appointment], now: datetime) -> list[dict]:
     tzone = ZoneInfo(settings.clinic_tz)
     slot = []
     now_clinic = now.astimezone(tzone)
@@ -16,7 +16,7 @@ def get_available_slots(doctor_id: str, target_date: date, working_hours: list[W
     day_blocks = [workingHours for workingHours in working_hours if workingHours.weekday == target_date.weekday()]
 
     booked_start = {
-        appointment.start_time for appointment in existing_appointments if appointment.status == AppointmentStatus.BOOKED
+        appointment.start_time.astimezone(ZoneInfo("UTC")) for appointment in existing_appointments if appointment.status == AppointmentStatus.BOOKED
     }
 
     for block in day_blocks:
