@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pydantic import BaseModel, Field, ConfigDict
 from app.enums import AppointmentStatus
 
-class Appointmentcreate(BaseModel):
+class AppointmentCreate(BaseModel):
     doctor_id: uuid.UUID
     patient_id: uuid.UUID
     start_time: datetime
@@ -11,7 +11,7 @@ class Appointmentcreate(BaseModel):
 class AppointmentCancel(BaseModel):
     reason: str = Field(..., min_length=1, max_length=500)
 
-class AppointReschedule(BaseModel):
+class AppointmentReschedule(BaseModel):
     new_start_time: datetime
 
 class AppointmentResponse(BaseModel):
