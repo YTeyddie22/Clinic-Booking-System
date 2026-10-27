@@ -5,7 +5,7 @@ from pydantic import field_validator
 class Settings (BaseSettings):
     database_url: str
     secret_key: str
-    clinic_tz:str = "Africs/Nairobi"
+    clinic_tz:str = "Africa/Nairobi"
     slot_minutes: int = 30
     booking_lead_minutes: int = 60
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
