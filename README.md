@@ -1,10 +1,10 @@
-## Section 1 — System Design
+## System Design
 
-### 1.1 Scenario
+### Scenario
 
 A  clinic with 5 doctors. Patients book 30-minute appointments online, per doctor, per day. Each doctor has a set of working hours. Once a slot is booked, it cannot be booked again. Patients can cancel and reschedule.
 
-### 1.2 Stack
+### Stack
 
 | Concern | Choice | Why |
 |---|---|---|
@@ -17,7 +17,7 @@ A  clinic with 5 doctors. Patients book 30-minute appointments online, per docto
 | CI | **GitHub Actions** | Runs pytest on every PR and on push to `main`. |
 | Container | Dockerfile (multi-stage) | Railway builds from it; Alembic runs at container start. |
 
-### 1.3 Data model
+### Data model
 
 ~~~text
 User                      # partial auth (Not in scope but good to consider)
@@ -72,16 +72,16 @@ Appointment
 - `end_time = start_time + SLOT_MINUTES` (30, config constant).
 - All times stored UTC; all business-day math done in `CLINIC_TZ=Africa/Nairobi`.
 
-### 1.4 Key decisions and trade-offs
+### Decisions and trade-offs
 
-#### 1.4.1 Double-booking prevention — partial unique index
+#### Double-booking prevention — partial unique index
 
 - **Chosen:** `UNIQUE (doctor_id, start_time) WHERE status='BOOKED'`.
 - **Why:** correctness under concurrency; CANCELLED/RESCHEDULED slots auto-free because they fall outside the index.
 - **Rejected:** app-level SELECT-then-INSERT (race); unique on `(doctor_id, start_time)` (blocks re-booking a cancelled slot).
 - The application layer validates first for 409s; the index is the last line of defense.
 
-#### 1.4.2 Reschedule is append-only
+#### Reschedule is append-only
 
 - Old row → `status='rescheduled'` (terminal; slot freed).
 - New row → `status='booked'` with `rescheduled_from_id` = old id.
@@ -89,34 +89,34 @@ Appointment
 - Rescheduling a cancelled appointment → 409.
 - **Why:** preserves history for audit; keeps validation logic DRY.
 
-#### 1.4.3 Working hours as rows, not a JSON blob
+#### Working hours as rows, not a JSON blob
 
 - `WorkingHours(doctor_id, weekday, start_time, end_time)`, multiple rows per day allowed (future: The doctors can have lunch breaks).
 - **Why:** queryable, validatable, natural extension point.
 - **Trade-off:** overlaps not DB-enforced; validated at seed time. Postgres `EXCLUDE` on a `tstzrange` is the future upgrade.
 
-#### 1.4.4 Patient model added (out of scope)
+#### Patient model added (out of scope)
 
 - `Appointment.patient_id` is a FK to `Patient`.
 - No Patient CRUD endpoints in the required API. The bonus `GET /patients/{id}/appointments` and evaluator seeding need a real table.
 - **Why include it:** the bonus endpoint references `patients/{id}`; a string/blob id would be dishonest to the data model. Documented as "modeled for completeness; endpoints out of scope."
 
-#### 1.4.5 Partial auth
+#### Partial auth
 
 - **Included:** `User` table, `POST /auth/login` (JWT), `get_current_user` dependency, seeded admin user.
 - **Not enforced** on the four required booking endpoints nor the bonus `GET /patients/{id}/appointments`.
 - **Why:** the assessment's required endpoints must be testable by the evaluator without credentials. Auth machinery exists and is one `Depends(get_current_user)` away from enforcement per route — documented as a next step.
 - **Trade-off:** a deliberate mismatch between "production-ready" and "assessment-testable." Documented, not accidental
 
-#### 1.4.6 Timezone
+#### Timezone
 
 - Store UTC. Hardcode `CLINIC_TZ=Africa/Nairobi` (EAT). Multi-clinic / multi-TZ is out of scope and noted.
 
-#### 1.4.7 Lead-time buffer (bonus)
+#### Lead-time buffer (bonus)
 
 - `BOOKING_LEAD_TIME_MINUTES=60`. Enforced in both the booking validator and availability generation, so availability never shows a slot you cannot book.
 
-### 1.5 Components
+### Components
 
 ~~~text
 app/
@@ -157,7 +157,7 @@ README.md
 - `availability.py` is pure functions → most tests need no DB.
 - Domain exceptions in `errors.py` map uniformly to 409/422/404.
 
-### 1.6 Error model
+### Error model
 
 Central mapping from domain exceptions to HTTP responses. Every error body:
 
@@ -181,7 +181,7 @@ Central mapping from domain exceptions to HTTP responses. Every error body:
 
 Rationale for 409 vs 422: 409 = state conflict (someone else got the slot; you cancelled twice). 422 = semantically invalid but well-formed (bad time, inside buffer). Documented so the evaluator sees it is intentional.
 
-### 1.7 API surface (Section 2 preview)
+### API surface (Section 2 preview)
 
 | Method | Path | Required? |
 |---|---|---|
@@ -193,7 +193,7 @@ Rationale for 409 vs 422: 409 = state conflict (someone else got the slot; you c
 | POST | `/auth/login` | partial auth |
 | GET | `/health` | Railway check |
 
-### 1.8 Deployment (Section 3 preview)
+### Deployment (Section 3 preview)
 
 - **Service `web`:** Dockerfile build; start command `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`; healthcheck `/health`; trigger branch `main`.
 - **Service `postgres`:** Railway plugin. `DATABASE_URL` wired via `${{Postgres.DATABASE_URL}}`. `config.py` rewrites `postgres://` → `postgresql+asyncpg://`.
@@ -202,7 +202,7 @@ Rationale for 409 vs 422: 409 = state conflict (someone else got the slot; you c
 - **Secrets:** `SECRET_KEY`, admin seed credentials as Railway env vars.
 - **Public URL:** filled in Section 3.
 
-### 1.9 Known limitations / next steps
+### Known limitations / next steps
 
 - Required booking endpoints unauthenticated by design (see §1.4.5).
 - No Patient CRUD endpoints; Patient modeled but not exposed.
@@ -212,7 +212,7 @@ Rationale for 409 vs 422: 409 = state conflict (someone else got the slot; you c
 - No soft-delete; audit preserved via status + `rescheduled_from_id` chain.
 - Future: Postgres `EXCLUDE` constraint on working-hour ranges; per-doctor lead-time override; multi-clinic tenancy.
 
-### 1.10 Decisions made without AI (feeds Section 4)
+### Decisions made without AI (feeds Section 4)
 
 1. **Partial unique index for double-booking** — a correctness-under-concurrency judgment that should be reasoned.
 2. **Partial-auth scope** — implementing the machinery but  not gating the required endpoints, because the assessment prioritizes testability over production realism. A judgment call about what the brief wants.
