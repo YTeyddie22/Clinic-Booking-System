@@ -30,7 +30,7 @@ class Doctor(Base):
     specialty: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    working_hours: Mapped[list["workingHours"]] = relationship(back_populates="doctor")
+    working_hours: Mapped[list["WorkingHours"]] = relationship(back_populates="doctor")
 
 class WorkingHours(Base):
     __tablename__ = "working_hours"
