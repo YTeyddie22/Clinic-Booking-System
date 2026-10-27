@@ -14,7 +14,7 @@ A  clinic with 5 doctors. Patients book 30-minute appointments online, per docto
 | Auth | JWT (`python-jose`) + argon2 (`pwdlib`) | Standard FastAPI pattern; partial implementation (see §1.4.5). |
 | Tests | pytest + pytest-asyncio + httpx AsyncClient | Fast; pure-logic tests need no external services. |
 | Deploy | **Railway** (web + Postgres plugin) | Native GitHub integration; "deploy on merge" and "wait for CI" built in. |
-| CI | **GitHub Actions** | Runs pytest on every PR and on push to `main`. |
+| CI | **GitHub Actions** | Runs pytest on every PR and on push to `master`. |
 | Container | Dockerfile (multi-stage) | Railway builds from it; Alembic runs at container start. |
 
 ### Data model
@@ -147,7 +147,7 @@ tests/
 Dockerfile
 docker-compose.yml
 railway.json             # healthcheck + start command hints
-.github/workflows/ci.yml # pytest on PR + push to main
+.github/workflows/ci.yml # pytest on PR + push to master
 README.md
 ~~~
 
@@ -193,12 +193,12 @@ Rationale for 409 vs 422: 409 = state conflict (someone else got the slot; you c
 | POST | `/auth/login` | partial auth |
 | GET | `/health` | Railway check |
 
-### Deployment (Section 3 preview)
+### Deployment
 
-- **Service `web`:** Dockerfile build; start command `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`; healthcheck `/health`; trigger branch `main`.
+- **Service `web`:** Dockerfile build; start command `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`; healthcheck `/health`; trigger branch `master`.
 - **Service `postgres`:** Railway plugin. `DATABASE_URL` wired via `${{Postgres.DATABASE_URL}}`. `config.py` rewrites `postgres://` → `postgresql+asyncpg://`.
-- **CI gate:** GitHub Actions runs pytest on PR and push to `main`. Railway "Wait for CI" enabled → merge to `main` deploys only after tests pass.
-- **Auto-deploy on merge:** Railway trigger branch `main` + autodeploy. Merging is the deploy.
+- **CI gate:** GitHub Actions runs pytest on PR and push to `master`. Railway "Wait for CI" enabled → merge to `master` deploys only after tests pass.
+- **Auto-deploy on merge:** Railway trigger branch `master` + autodeploy. Merging is the deploy.
 - **Secrets:** `SECRET_KEY`, admin seed credentials as Railway env vars.
 - **Public URL:** filled in Section 3.
 
@@ -212,8 +212,29 @@ Rationale for 409 vs 422: 409 = state conflict (someone else got the slot; you c
 - No soft-delete; audit preserved via status + `rescheduled_from_id` chain.
 - Future: Postgres `EXCLUDE` constraint on working-hour ranges; per-doctor lead-time override; multi-clinic tenancy.
 
-### Decisions made without AI (feeds Section 4)
+### Deployment & CI/CD
 
-1. **Partial unique index for double-booking** — a correctness-under-concurrency judgment that should be reasoned.
-2. **Partial-auth scope** — implementing the machinery but  not gating the required endpoints, because the assessment prioritizes testability over production realism. A judgment call about what the brief wants.
-3. **Adding the Patient model despite it being out of required scope** — honest data modeling given the bonus endpoint references `patients/{id}`.
+- **Live Application URL:** https://clinic-booking-system-production-940b.up.railway.app/docs
+- **Deploy Branch:** `master`
+
+### CI/CD Pipeline Description
+- **GitHub Actions (CI):** The pipeline (`.github/workflows/ci.yml`) runs the `pytest` test suite on every pull request and push to the `master` branch. It provisions a temporary PostgreSQL service container to execute database-dependent tests.
+- **Railway (CD):** Railway is configured to auto-deploy from the `master` branch. Once the GitHub Actions workflow passes, Railway builds the Docker image and deploys the new version.
+- **Automated Migrations:** The deployment uses a custom `Dockerfile`. Upon startup, the container automatically runs `alembic upgrade head` to apply pending database migrations to the Railway PostgreSQL instance before starting the FastAPI server with Uvicorn.
+
+---
+
+## Section 4 — AI Reflection
+
+**1. What did you use AI for across the four sections?**
+I used AI to scaffold the initial FastAPI boilerplate, generate the SQLAlchemy models, and troubleshoot environment-specific errors (such as Alembic's asyncpg driver conflicts, Pydantic v2 serialization issues, and Railway's builder configuration) I also used it to write up parts of the documentation that seemed off.
+
+**2. Give one example where an AI suggestion improved your work. What did you prompt it with?**
+I prompted the AI with: "How should I design the database schema to prevent double-booking at the DB level, not just the application level?". This was to uphold the industry standard of fat models and thin controllers. It suggested using a **PostgreSQL partial unique index** `(doctor_id, start_time) WHERE status = 'booked'`. This was a massive improvement because it guarantees data integrity even under concurrent requests, which app-level validation alone cannot do.
+
+**3. Give one example where AI output was wrong or incomplete and how you caught it.**
+When generating the Alembic migration, the AI forgot to include the `postgresql_where` clause for the partial unique index. I caught it by reviewing the generated migration file and testing the schema in pgAdmin to ensure the index was applied. The AI wrote a broken relationship mapping between `Doctor` and `WorkingHours` that caused the app to crash on startup; I caught it by reading the Railway deployment logs and reordering the class definitions.
+
+**4. Name two decisions you made without AI. Why did you trust your own judgment there?**
+- **Append-only reschedules:** I decided to keep old appointments as `rescheduled` and create a new appointment row, rather than just updating the `start_time` in place. I trusted this judgment because preserving the audit trail is critical in healthcare systems.
+- **Partial Auth Scope:** I chose to implement the JWT utility functions and a `User` table, but did not enforce authentication on the booking endpoints. I did this because the assessment prioritized testability by the evaluator over production-level security.
