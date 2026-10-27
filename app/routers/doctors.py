@@ -29,8 +29,8 @@ async def get_doctor_availability(id: uuid.UUID, date: date = Query(...), db: As
 
     slots = get_available_slots(target_date=date, working_hours=working_hours, existing_appointments=appointments, now=datetime.now(timezone.utc))
 
-    return {
-        "doctor_id": id,
-        "date": date,
-        "available_slots": slots
-    }
+    return schemas.AvailabilityResponse(
+        doctor_id = id,
+        date = date,
+        available_slots = [schemas.AvailabilitySlot(**slot) for slot in slots]
+    )

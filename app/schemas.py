@@ -27,8 +27,10 @@ class AppointmentResponse(BaseModel):
 class AvailabilitySlot(BaseModel):
     start_time: datetime
     end_time: datetime
+    model_config = ConfigDict(from_attributes=True)
 
 class AvailabilityResponse(BaseModel):
     doctor_id: uuid.UUID
     date: date
     available_slots: list[AvailabilitySlot]
+    model_config = ConfigDict(from_attributes=True)
