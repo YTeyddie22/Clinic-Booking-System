@@ -16,7 +16,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class Patient(Base):
-    __table_name = "patients"
+    __tablename__ = "patients"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     full_name: Mapped[str] = mapped_column(String(255))
     email: Mapped[str] = mapped_column(String(255), unique=True)
@@ -43,7 +43,7 @@ class WorkingHours(Base):
     doctor: Mapped["Doctor"] = relationship(back_populates="working_hours")
 
 class Appointment(Base):
-    __table_name = "appointments"
+    __tablename__ = "appointments"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     doctor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("doctors.id"))
     patient_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("patients.id"))
@@ -52,9 +52,9 @@ class Appointment(Base):
     status: Mapped[AppointmentStatus] = mapped_column(SQLEnum(AppointmentStatus), default=AppointmentStatus.BOOKED)
     cancellation_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    rescheduled_from_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey="appointments.id", nullable=True)
+    rescheduled_from_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("appointments.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    update_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default= func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default= func.now(), onupdate=func.now())
 
     __tablearg__ = (
         Index(
